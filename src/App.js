@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
 import FirebaseAuthService from "./FirebaseAuthService";
-import FirebaseFirestoreService from "./FirebaseFirestoreService";
+// import FirebaseFirestoreService from "./FirebaseFirestoreService";
+import FirebaseFireStoreRestService from "./FirebaseFirestoreRestService";
 
 import LoginForm from "./components/LoginForm";
 import AddEditRecipeForm from "./components/AddEditRecipeForm";
@@ -75,27 +76,40 @@ function App() {
     let fetchedRecipes = [];
 
     try {
-      const response = await FirebaseFirestoreService.readDocuments({
+      // const response = await FirebaseFirestoreService.readDocuments({
+      //   collection: "recipes",
+      //   queries: queries,
+      //   orderByField: orderByField,
+      //   orderByDirection: orderByDirection,
+      //   perPage: recipesPerPage,
+      //   cursorId: cursorId,
+      // });
+      // const newRecipes = response.docs.map((recipeDoc) => {
+      //   const id = recipeDoc.id;
+      //   const data = recipeDoc.data();
+      //   data.publishDate = new Date(data.publishDate.seconds * 1000);
+      //   return { ...data, id };
+      // });
+      // if (cursorId) {
+      //   fetchedRecipes = [...recipes, ...newRecipes];
+      // } else {
+      //   fetchedRecipes = [...newRecipes];
+      // }
+
+      const response = await FirebaseFireStoreRestService.readDocument({
         collection: "recipes",
         queries: queries,
         orderByField: orderByField,
         orderByDirection: orderByDirection,
-        perPage: recipesPerPage,
-        cursorId: cursorId,
       });
 
-      const newRecipes = response.docs.map((recipeDoc) => {
-        const id = recipeDoc.id;
-        const data = recipeDoc.data();
-        data.publishDate = new Date(data.publishDate.seconds * 1000);
+      if (response && response.documents) {
+        fetchedRecipes = response.documents;
 
-        return { ...data, id };
-      });
-
-      if (cursorId) {
-        fetchedRecipes = [...recipes, ...newRecipes];
-      } else {
-        fetchedRecipes = [...newRecipes];
+        fetchedRecipes.forEach((recipe) => {
+          const unixPublishDateTime = recipe.publishDate;
+          recipe.publishDate = new Date(unixPublishDateTime * 1000);
+        });
       }
     } catch (error) {
       console.error(error.message);
@@ -132,7 +146,12 @@ function App() {
 
   async function handleAddRecipe(newRecipe) {
     try {
-      const response = await FirebaseFirestoreService.createDocument(
+      // const response = await FirebaseFirestoreService.createDocument(
+      //   "recipes",
+      //   newRecipe
+      // );
+
+      const response = await FirebaseFireStoreRestService.createDocument(
         "recipes",
         newRecipe
       );
@@ -147,7 +166,12 @@ function App() {
 
   async function handleUpdateRecipe(newRecipe, recipeId) {
     try {
-      await FirebaseFirestoreService.updateDocument(
+      // await FirebaseFirestoreService.updateDocument(
+      //   "recipes",
+      //   recipeId,
+      //   newRecipe
+      // );
+      await FirebaseFireStoreRestService.updateDocument(
         "recipes",
         recipeId,
         newRecipe
@@ -170,7 +194,8 @@ function App() {
 
     if (deleteConfirmtion) {
       try {
-        await FirebaseFirestoreService.deleteDocument("recipes", recipeId);
+        // await FirebaseFirestoreService.deleteDocument("recipes", recipeId);
+        await FirebaseFireStoreRestService.deleteDocument("recipes", recipeId);
 
         handleFetchRecipes();
 
