@@ -1,8 +1,11 @@
 const FirebaseConfig = require("./FirebaseConfig");
+const recipesApi = require("./recipesApi");
 const functions = FirebaseConfig.functions;
 const firestore = FirebaseConfig.firestore;
 const storageBucket = FirebaseConfig.storageBucket;
 const admin = FirebaseConfig.admin;
+
+exports.api = functions.https.onRequest(recipesApi);
 
 exports.onCreateRecipe = functions.firestore
   .document("recipes/{recipeId}")
@@ -117,3 +120,41 @@ exports.onUpdateRecipe = functions.firestore
       }
     }
   });
+
+/********************** CRON Job **************************/
+const runtimeOptions = {
+  timeoutSeconds: 300,
+  memory: "256MB",
+};
+
+exports.dailyCheckRecipePublishDate = functions
+  .runWith(runtimeOptions)
+  .pubsub.schedule("0 0 * * *")
+  .onRun(async () => {
+    console.log("dailyCheckRecipePublishDate() called - time to check");
+
+    const snapshot = await firestore
+      .collection("recipes")
+      .where("isPublished", "==", false)
+      .get();
+
+    snapshot.forEach(async (doc) => {
+      const data = doc.data();
+      const now = Date.now() / 1000; //in secs
+      const isPublished = data.publishDate._seconds <= now ? true : false;
+
+      if (isPublished) {
+        console.log(`Recipe: ${data.name} is now published!`);
+        firestore.collection("recipes").doc(doc.id).set(
+          {
+            isPublished,
+          },
+          {
+            merge: true, //to prevent override of other fields
+          }
+        );
+      }
+    });
+  });
+
+console.log("SERVER STARTED!");
