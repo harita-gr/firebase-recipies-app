@@ -17,6 +17,9 @@ function App() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [orderBy, setOrderBy] = useState("publishDateDesc");
   const [recipesPerPage, setRecipesPerPage] = useState(3);
+  const [isLastPage, setIsLastPage] = useState(false);
+  const [totalNumberOfPages, setTotalNumberOfPages] = useState(0);
+  const [currentPageNumber, setCurrentPageNumber] = useState(1);
 
   useEffect(() => {
     setIsLoading(true);
@@ -34,7 +37,7 @@ function App() {
       });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, categoryFilter, orderBy, recipesPerPage]);
+  }, [user, categoryFilter, orderBy, recipesPerPage, currentPageNumber]);
 
   FirebaseAuthService.subscribeToAuthChanges(setUser);
 
@@ -101,9 +104,41 @@ function App() {
         queries: queries,
         orderByField: orderByField,
         orderByDirection: orderByDirection,
+        perPage: recipesPerPage,
+        pageNumber: currentPageNumber,
       });
 
       if (response && response.documents) {
+        const totalNumberOfPages = Math.ceil(
+          response.recipeCount / recipesPerPage
+        );
+        setTotalNumberOfPages(totalNumberOfPages);
+
+        const nextPageQuery = {
+          collection: "recipes",
+          queries: queries,
+          orderByField: orderByField,
+          orderByDirection: orderByDirection,
+          perPage: recipesPerPage,
+          pageNumber: currentPageNumber + 1,
+        };
+
+        const nextPageResponse =
+          await FirebaseFireStoreRestService.readDocument(nextPageQuery);
+
+        if (
+          nextPageResponse &&
+          nextPageResponse.documents &&
+          nextPageResponse.documents.length === 0
+        ) {
+          setIsLastPage(true);
+        } else {
+          setIsLastPage(false);
+        }
+
+        if (response.documents.length === 0 && currentPageNumber !== 1) {
+          setCurrentPageNumber(currentPageNumber + 1);
+        }
         fetchedRecipes = response.documents;
 
         fetchedRecipes.forEach((recipe) => {
@@ -363,13 +398,58 @@ function App() {
               </select>
             </label>
             <div className="pagination">
-              <button
+              {/* <button
                 type="button"
                 onClick={handleLoadMoreRecipesClick}
                 className="primary-button"
               >
                 LOAD MORE RECIPES
-              </button>
+              </button> */}
+              <div className="row">
+                <button
+                  className={
+                    currentPageNumber === 1
+                      ? "primary-button hidden"
+                      : "primary-button"
+                  }
+                  type="button"
+                  onClick={() => setCurrentPageNumber(currentPageNumber - 1)}
+                >
+                  Previous
+                </button>
+                <div> Page {currentPageNumber}</div>
+                <button
+                  className={
+                    isLastPage ? "primary-button hidden" : "primary-button"
+                  }
+                  type="button"
+                  onClick={() => setCurrentPageNumber(currentPageNumber + 1)}
+                >
+                  Next
+                </button>
+              </div>
+              <div className="row">
+                {!categoryFilter
+                  ? new Array(totalNumberOfPages)
+                      .fill(0)
+                      .map((value, index) => {
+                        return (
+                          <button
+                            key={index + 1}
+                            type="button"
+                            className={
+                              currentPageNumber === index + 1
+                                ? "selected-page primary-button page-button"
+                                : "primary-button page-button"
+                            }
+                            onClick={() => setCurrentPageNumber(index + 1)}
+                          >
+                            {index + 1}
+                          </button>
+                        );
+                      })
+                  : null}
+              </div>
             </div>
           </>
         ) : null}
